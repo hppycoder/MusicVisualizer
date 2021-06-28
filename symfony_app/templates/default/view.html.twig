@@ -1,0 +1,207 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Music Visualizer{% endblock %}
+
+{% block body %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+
+    <style>
+        body {
+            background: #c1c1c1;
+        }
+
+        canvas#myCanvas {
+            background: #fff;
+            border: 1px solid #464646;
+        }
+    </style>
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-1 mt-2">
+                <button class="btn btn-success btn-lg" id="buttonStart">START</button>
+                <button class="btn btn-danger btn-lg" id="buttonStop">STOP</button>
+            </div>
+            <div class="col-sm-11">
+                <div style="width:100%; height:100%; text-align:center;" id="canvasDiv">
+                    <canvas id="myCanvas" width="1200" height="850"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+      $("#buttonStop").hide();
+
+      $("#buttonStart").on('click', function() {
+        $(this).hide();
+        $("#buttonStop").show();
+        $.get('{{ path('startSong') }}');
+      });
+
+      $("#buttonStop").on('click', function() {
+        $(this).hide();
+        $("#buttonStart").show();
+        $.get('{{ path('stopSong') }}');
+      });
+
+
+
+
+      setInterval(getReadings, 1000);
+      getReadings();
+
+      function getReadings() {
+        $.getJSON('/songs/current.json?' + Date.now(), function (json) {
+          drawPicture(json);
+        })
+      }
+
+      function drawPicture(json) {
+        // Remove the canvas and add it again to avoid the overdrawing
+        $("#myCanvas").remove();
+        $("#canvasDiv").append("<canvas width='1200' height='850' id='myCanvas'></canvas>");
+
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        var bars = json.readings.length;
+        var barWidth = 1;
+        var color = "purple";
+        // no need to use degrees, a full circle is just 2
+        var x = canvas.width / 2;
+        var y = canvas.height / 2;
+
+        var cnt = 0;
+        for (i = 0; i < Math.PI * 2; i += (Math.PI * 2 / bars)) {
+          if (typeof json.readings[cnt] !== 'undefined') {
+            var volts = (typeof json.readings[cnt][2] !== 'undefined') ? json.readings[cnt][2] : 0;
+            if (volts < 1) {
+              barWidth = 2;
+            } else if (volts >= 1 && volts < 2) {
+              barWidth = 2.25;
+            } else if (volts >= 2 && volts < 3) {
+              barWidth = 2.5;
+            } else {
+              barWidth = 3;
+            }
+
+            var freq = json.readings[cnt][0];
+            if (freq < 200) {
+              color = "purple";
+            } else if (freq >= 200 && freq < 500) {
+              color = "blue";
+            } else if (freq >= 500 && freq < 800) {
+              color = "teal";
+            } else if (freq >= 800 && freq < 1100) {
+              color = "green";
+            } else if (freq >= 1100 && freq < 1400) {
+              color = "yellow";
+            } else if (freq >= 1400 && freq < 1700) {
+              color = "orange";
+            } else if (freq >= 1700 && freq < 2000) {
+              color = "#ff5349";
+            } else if (freq >= 2000) {
+              color = "red";
+            }
+
+            draw_rectangle(ctx, x, y, i, (json.readings[cnt][1] / 2.5) + 15, color, barWidth);
+            cnt++;
+          }
+        }
+      }
+
+      /*
+      function drawPicture(json) {
+        var i, j, chunk = 50;
+        var jsonChunks = [];
+        for (i = 0, j = json.readings.length; i < j; i += chunk) {
+          jsonChunks.push(json.readings.slice(i, i + chunk));
+        }
+
+        // Remove the canvas and add it again to avoid the overdrawing
+        $("#myCanvas").remove();
+        $("#canvasDiv").append("<canvas width='1000' height='900' id='myCanvas'></canvas>");
+
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        var bars = 50;
+        var barWidth = 1;
+        var color = "purple";
+        // no need to use degrees, a full circle is just 2
+        var x = 0;
+        var y = 0;
+        $.each(jsonChunks, function (key, val) {
+          x += 75;
+          if (key % 12 === 0) {
+            x = 75;
+            y += 100;
+          }
+
+          var cnt = 0;
+          for (i = 0; i < Math.PI * 2; i += (Math.PI * 2 / bars)) {
+            if (typeof val[cnt] !== 'undefined') {
+              var volts = (typeof val[cnt][2] !== 'undefined') ? val[cnt][2] : 0;
+              if (volts < 1) {
+                barWidth = 1;
+              } else if (volts >= 1 && volts < 2) {
+                barWidth = 2;
+              } else if (volts >= 2 && volts < 3) {
+                barWidth = 3;
+              } else {
+                barWidth = 4;
+              }
+
+              var freq = val[cnt][0];
+              if (freq < 200) {
+                color = "purple";
+              } else if (freq >= 200 && freq < 500) {
+                color = "blue";
+              } else if (freq >= 500 && freq < 800) {
+                color = "teal";
+              } else if (freq >= 800 && freq < 1100) {
+                color = "green";
+              } else if (freq >= 1100 && freq < 1400) {
+                color = "yellow";
+              } else if (freq >= 1400 && freq < 1700) {
+                color = "orange";
+              } else if (freq >= 1700 && freq < 2000) {
+                color = "#ff5349";
+              } else if (freq >= 2000) {
+                color = "red";
+              }
+
+              if (val[cnt][0] > 400) {
+                draw_rectangle(ctx, x, y, i, (val[cnt][1] / 15) + 10, color, barWidth);
+              } else {
+                draw_rectangle(ctx, x, y, i, (val[cnt][1] / 15) + 10, color, barWidth);
+              }
+              cnt++;
+            } else {
+              console.log(cnt);
+            }
+          }
+        });
+      }
+
+       */
+
+      function draw_rectangle(ctx, x, y, rad, barHeight, fillStyle, barWidth) {
+        // reset and move to the center of our circle
+        ctx.setTransform(1, 0, 0, 1, x, y);
+        // rotate the context so we face the correct angle
+        ctx.rotate(rad);
+        // move along y axis to reach the inner radius
+        ctx.translate(0, 20);
+        // draw the bar
+        ctx.fillRect(
+          -barWidth / 2, // centered on x
+          0, // from the inner radius
+          barWidth,
+          barHeight // until its own height
+        );
+        ctx.fillStyle = fillStyle;
+      }
+    </script>
+{% endblock %}
